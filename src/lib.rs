@@ -6,6 +6,9 @@ pub mod error;
 mod flag;
 mod help;
 
+pub mod extensions;
+pub mod data;
+
 pub use action::Action;
 pub use app::App;
 pub use command::Command;

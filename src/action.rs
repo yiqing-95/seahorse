@@ -12,3 +12,4 @@ use crate::Context;
 /// };
 /// ```
 pub type Action = fn(&Context);
+// pub type Action = Fn(&Context);

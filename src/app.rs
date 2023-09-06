@@ -1,4 +1,6 @@
-use crate::{Action, Command, Context, Flag, FlagType, Help};
+use std::{mem, cell::RefCell, rc::Rc};
+
+use crate::{Action, Command, Context, Flag, FlagType, Help, extensions::Extensions,data};
 
 /// Multiple action application entry point
 #[derive(Default)]
@@ -19,6 +21,10 @@ pub struct App {
     pub action: Option<Action>,
     /// Application flags
     pub flags: Option<Vec<Flag>>,
+    /// Application extensions
+    // extensions: Extensions,
+    // extensions: RefCell<Option<Extensions>>
+    extensions: RefCell<Extensions>
 }
 
 impl App {
@@ -183,6 +189,31 @@ impl App {
         self
     }
 
+    /// Set application (root level) data.
+    ///
+    /// Application data stored with `App::app_data()` method is available through the
+    ///  (context::app_data) method at runtime.
+    /// 
+    /// Example
+    ///
+    /// ```
+    /// use std::cell::Cell;
+    /// use seahorse::{App, Flag, FlagType,data};
+    /// 
+    /// struct MyData {
+    ///     count: std::cell::Cell<usize>,
+    /// }
+    ///
+    /// let app = App::new("cli")
+    ///     .app_data(2usize)
+    ///     .app_data("someString".to_string())
+    ///     .app_data(data::Data::new( MyData { count: Default::default() }));
+    /// ```
+    pub fn app_data<U: 'static>(mut self, ext: U) -> Self {
+        self.extensions.borrow_mut().insert(ext);
+        self
+    }
+
     /// Run app
     ///
     /// Example
@@ -218,10 +249,18 @@ impl App {
                         self.help();
                         return;
                     }
-                    action(&Context::new(
+
+                    //  let extensions = mem::replace(&self.extensions.borrow_mut(), Extensions::default());
+                    // let extensions = &self.extensions.take();
+                    // FIXME: here we take away the extensions
+                    let extensions = self.extensions.replace(Extensions::default());
+
+                    action(&Context::new_with_extensions(
                         args[1..].to_vec(),
                         self.flags.clone(),
                         self.help_text(),
+                        //FIXME: if need put back to `self.extension` after the action execution
+                        Rc::new(RefCell::new(extensions)) 
                     ));
                 }
                 None => self.help(),

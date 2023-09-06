@@ -1,4 +1,8 @@
+use std::cell::{Ref, RefCell, RefMut};
+use std::rc::Rc;
+
 use crate::error::FlagError;
+use crate::extensions::Extensions;
 use crate::{Flag, FlagType, FlagValue};
 
 /// `Context` type
@@ -10,6 +14,12 @@ pub struct Context {
     /// `Vec` that stores flag name and flag value as tuple
     flags: Option<Vec<(String, Result<FlagValue, FlagError>)>>,
     help_text: String,
+
+    // FIXME: for extensions which one is better?
+    // extensions: Extensions,
+    //  pub(crate) extensions: RefCell<Option<Extensions>>, // can be taken:  let mut app_data = self.extensions.borrow_mut().take().unwrap_or_default();
+    pub(crate) extensions: Rc<RefCell<Extensions>>, // in same thread can be shared and have the interior mutability
+    // extensions: RefCell<Extensions>,
 }
 
 impl Context {
@@ -47,7 +57,24 @@ impl Context {
             args: parsed_args,
             flags: flags_val,
             help_text,
+
+            // extensions: Extensions::new(),
+            extensions: Rc::new(RefCell::new(Extensions::default())),
+            // extensions,
+            // ..Default::default()
         }
+    }
+
+    pub fn new_with_extensions(args: Vec<String>, flags: Option<Vec<Flag>>, help_text: String,extensions: Rc<RefCell<Extensions>>)-> Self{
+        let mut old = Self::new(args,flags,help_text);
+
+        old = old.with_extensions(extensions);
+
+        return old
+    }
+    pub fn  with_extensions(mut self, extensions:Rc<RefCell<Extensions>>) -> Self {
+        self.extensions = extensions;
+        self
     }
 
     /// Get flag value
@@ -190,6 +217,16 @@ impl Context {
     /// ```
     pub fn help(&self) {
         println!("{}", self.help_text);
+    }
+
+    #[inline]
+    pub fn extensions(&self) -> Ref<'_, Extensions> {
+        self.extensions.borrow()
+    }
+
+    #[inline]
+    pub fn extensions_mut(&self) -> RefMut<'_, Extensions> {
+        self.extensions.borrow_mut()
     }
 }
 
