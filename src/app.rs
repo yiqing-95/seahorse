@@ -1,6 +1,6 @@
-use std::{mem, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, mem, rc::Rc};
 
-use crate::{Action, Command, Context, Flag, FlagType, Help, extensions::Extensions,data};
+use crate::{data, extensions::Extensions, Action, Command, Context, Flag, FlagType, Help};
 
 /// Multiple action application entry point
 #[derive(Default)]
@@ -24,7 +24,7 @@ pub struct App {
     /// Application extensions
     // extensions: Extensions,
     // extensions: RefCell<Option<Extensions>>
-    extensions: RefCell<Extensions>
+    extensions: RefCell<Extensions>,
 }
 
 impl App {
@@ -193,13 +193,13 @@ impl App {
     ///
     /// Application data stored with `App::app_data()` method is available through the
     ///  (context::app_data) method at runtime.
-    /// 
+    ///
     /// Example
     ///
     /// ```
     /// use std::cell::Cell;
     /// use seahorse::{App, Flag, FlagType,data};
-    /// 
+    ///
     /// struct MyData {
     ///     count: std::cell::Cell<usize>,
     /// }
@@ -241,8 +241,17 @@ impl App {
             }
         };
 
+        //  let extensions = mem::replace(&self.extensions.borrow_mut(), Extensions::default());
+        // let extensions = &self.extensions.take();
+        // FIXME: here we take away the extensions
+        let extensions = self.extensions.replace(Extensions::default());
+
         match self.select_command(cmd) {
-            Some(command) => command.run(args_v.to_vec()),
+            Some(command) =>{
+
+                command.extensions.borrow_mut().extend(extensions) ;
+                command.run(args_v.to_vec())
+            } 
             None => match self.action {
                 Some(action) => {
                     if args.contains(&"-h".to_string()) || args.contains(&"--help".to_string()) {
@@ -250,17 +259,12 @@ impl App {
                         return;
                     }
 
-                    //  let extensions = mem::replace(&self.extensions.borrow_mut(), Extensions::default());
-                    // let extensions = &self.extensions.take();
-                    // FIXME: here we take away the extensions
-                    let extensions = self.extensions.replace(Extensions::default());
-
                     action(&Context::new_with_extensions(
                         args[1..].to_vec(),
                         self.flags.clone(),
                         self.help_text(),
                         //FIXME: if need put back to `self.extension` after the action execution
-                        Rc::new(RefCell::new(extensions)) 
+                        Rc::new(RefCell::new(extensions)),
                     ));
                 }
                 None => self.help(),

@@ -32,6 +32,9 @@ fn action(c: &Context) {
     let d = std::cell::Ref::map(c.extensions(), |ext| ext.get::<String>().unwrap());
     println!("app-data2: {:#?}", *d) ;
 
+    // let d = c.app_data_get::<String>();
+    // println!("data:{}",*d);
+
 
     if c.bool_flag("bye") {
         println!("Bye, {:?}", c.args);

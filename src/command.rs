@@ -1,4 +1,7 @@
-use crate::{Action, Context, Flag, FlagType, Help};
+use std::{cell::{Ref, RefCell, RefMut}, rc::Rc};
+
+
+use crate::{Action, Context, Flag, FlagType, Help, extensions::{Extensions, HasExtensions}};
 
 /// Application command type
 #[derive(Default)]
@@ -16,6 +19,14 @@ pub struct Command {
     /// Command alias
     pub alias: Option<Vec<String>>,
     pub commands: Option<Vec<Command>>,
+
+    pub(crate) extensions: RefCell<Extensions>,
+}
+
+impl HasExtensions for Command{
+    fn get_extensions(&self) -> &RefCell<Extensions> {
+        &self.extensions
+    }
 }
 
 impl Command {
@@ -207,9 +218,17 @@ impl Command {
     pub fn run(&self, args: Vec<String>) {
         let args = Self::normalized_args(args);
 
+
+        let extensions = self.extensions.replace(Extensions::default());
+
         match args.split_first() {
             Some((cmd, args_v)) => match self.select_command(cmd) {
-                Some(command) => command.run(args_v.to_vec()),
+                Some(command) => {
+                    command.extensions.borrow_mut().extend(
+                        extensions
+                    );
+                    command.run(args_v.to_vec())
+                }
                 None => match self.action {
                     Some(action) => {
                         if args.contains(&"-h".to_string()) || args.contains(&"--help".to_string())
@@ -217,10 +236,11 @@ impl Command {
                             self.help();
                             return;
                         }
-                        action(&Context::new(
+                        action(&Context::new_with_extensions(
                             args.to_vec(),
                             self.flags.clone(),
                             self.help_text(),
+                            Rc::new(RefCell::new(extensions))
                         ));
                     }
                     None => self.help(),
@@ -232,10 +252,11 @@ impl Command {
                         self.help();
                         return;
                     }
-                    action(&Context::new(
+                    action(&Context::new_with_extensions(
                         args.to_vec(),
                         self.flags.clone(),
                         self.help_text(),
+                        Rc::new(RefCell::new(extensions))
                     ));
                 }
                 None => self.help(),
@@ -376,7 +397,9 @@ impl Help for Command {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Action, Command, Context, Flag, FlagType};
+    use std::{cell::RefCell, rc::Rc};
+
+    use crate::{Action, Command, Context, Flag, FlagType, extensions::Extensions};
 
     #[test]
     fn command_test() {
@@ -408,6 +431,39 @@ mod tests {
             .action(a)
             .flag(Flag::new("t", FlagType::Bool))
             .command(sub);
+
+        assert_eq!(c.name, "hello".to_string());
+        assert_eq!(c.usage, Some("test hello user".to_string()));
+    }
+    #[test]
+    fn command_extentions_test() {
+        let a: Action = |c: &Context| {
+            if let Some(app_data) =  c.extensions_mut().get::<String>(){
+
+                println!("❗️ app-data: {:#?}", app_data) ;
+            }
+            println!("Hello, {:?}", c.args)
+        
+        };
+        
+        let extensions = RefCell::new(Extensions::default());
+
+        extensions.borrow_mut().insert("some data passed to action! 👀".to_string());
+
+        let mut c = Command::new("hello")
+            .description("user command")
+            .usage("test hello user")
+            .alias("h")
+            .action(a)
+            .flag(Flag::new("t", FlagType::Bool))
+            ;
+        // TODO support chaining method as other attributes 👆
+        c.extensions = extensions ;
+
+        c.run(vec![
+            "hello".to_string(),
+        ]);
+             
 
         assert_eq!(c.name, "hello".to_string());
         assert_eq!(c.usage, Some("test hello user".to_string()));

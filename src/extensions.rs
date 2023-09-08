@@ -1,5 +1,6 @@
 use std::{
     any::{Any, TypeId},
+    cell::{Ref, RefCell, RefMut},
     collections::HashMap,
     fmt,
     hash::{BuildHasherDefault, Hasher},
@@ -155,6 +156,28 @@ impl fmt::Debug for Extensions {
 
 fn downcast_owned<T: 'static>(boxed: Box<dyn Any>) -> Option<T> {
     boxed.downcast().ok().map(|boxed| *boxed)
+}
+
+// ## for convenient provide this trait
+// @see https://www.reddit.com/r/rust/comments/13j5aya/traits_requiring_a_struct_to_have_a_field/
+pub trait HasExtensions {
+    // type ExtensionsType = Extensions ;
+    // type ExtensionsType ; // this can be Extensiont type or any other Boxed types: Rc<RefCell<Extensions>>|RefCell<Extensions>
+    // fn get_extensions(&self) -> &Self::ExtensionsType;
+    // 🤔 maybe the Into<&RefCell<Extensions>>
+    fn get_extensions(&self) -> &RefCell<Extensions>; // specify the most common used type 😔
+    // fn set_extensions(mut self, extensions: &Extensions) -> Self;
+
+    // based on above code we can provider some other methods：
+    #[inline]
+    fn extensions(&self) -> Ref<'_, Extensions> {
+        self.get_extensions().borrow()
+    }
+
+    #[inline]
+    fn extensions_mut(&self) -> RefMut<'_, Extensions> {
+        self.get_extensions().borrow_mut()
+    }
 }
 
 #[cfg(test)]

@@ -19,7 +19,7 @@ pub struct Context {
     // extensions: Extensions,
     //  pub(crate) extensions: RefCell<Option<Extensions>>, // can be taken:  let mut app_data = self.extensions.borrow_mut().take().unwrap_or_default();
     pub(crate) extensions: Rc<RefCell<Extensions>>, // in same thread can be shared and have the interior mutability
-    // extensions: RefCell<Extensions>,
+                                                    // extensions: RefCell<Extensions>,
 }
 
 impl Context {
@@ -65,14 +65,19 @@ impl Context {
         }
     }
 
-    pub fn new_with_extensions(args: Vec<String>, flags: Option<Vec<Flag>>, help_text: String,extensions: Rc<RefCell<Extensions>>)-> Self{
-        let mut old = Self::new(args,flags,help_text);
+    pub fn new_with_extensions(
+        args: Vec<String>,
+        flags: Option<Vec<Flag>>,
+        help_text: String,
+        extensions: Rc<RefCell<Extensions>>,
+    ) -> Self {
+        let mut old = Self::new(args, flags, help_text);
 
         old = old.with_extensions(extensions);
 
-        return old
+        return old;
     }
-    pub fn  with_extensions(mut self, extensions:Rc<RefCell<Extensions>>) -> Self {
+    pub fn with_extensions(mut self, extensions: Rc<RefCell<Extensions>>) -> Self {
         self.extensions = extensions;
         self
     }
@@ -228,6 +233,12 @@ impl Context {
     pub fn extensions_mut(&self) -> RefMut<'_, Extensions> {
         self.extensions.borrow_mut()
     }
+
+    // FIXME: how to implement this functionality？
+    // pub fn app_data_get<T>(&self) -> Ref<'_,T> {
+    //     // self.extensions().get::<T>()
+    //    Ref::map(self.extensions(), |ext| ext.get::<T>().unwrap())
+    // }
 }
 
 #[cfg(test)]
